@@ -1,0 +1,127 @@
+loki-distributed:
+  nameOverride: loki
+  fullnameOverride: loki
+  serviceAccount:
+    name: loki-aws-access
+  serviceMonitor:
+    enabled: true
+    namespaceSelector:
+      matchNames:
+        - loki
+    interval: &serviceMonitorInterval 15s
+  gateway:
+    replicas: &replicas 3
+    service:
+      port: &gatewayPort 80
+    resources:
+      requests:
+        cpu: 25m
+        memory: 50Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
+    podAnnotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "http"
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: internal
+        nginx.ingress.kubernetes.io/auth-type: basic
+        nginx.ingress.kubernetes.io/auth-secret: loki-ingress-basic-auth
+  ingester:
+    replicas: *replicas
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 1
+        memory: 4Gi
+  querier:
+    replicas: *replicas
+    resources:
+      requests:
+        cpu: 2
+        memory: 2Gi
+      limits:
+        cpu: 4
+        memory: 4Gi
+  queryFrontend:
+    replicas: 2
+    resources:
+      requests:
+        cpu: 50m
+        memory: 250Mi
+      limits:
+        cpu: 200m
+        memory: 500Mi
+  tableManager:
+    enabled: true
+    resources: 
+      requests:
+        cpu: 50m
+        memory: 20Mi
+      limits:
+        cpu: 200m
+        memory: 200Mi
+  distributor:
+    replicas: *replicas
+    resources: 
+      requests:
+        cpu: 300m
+        memory: 250Mi
+      limits:
+        cpu: 1
+        memory: 500Mi
+  memcachedExporter:
+    enabled: true
+    resources:
+      requests:
+        cpu: 5m
+        memory: 10Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
+  memcachedChunks:
+    replicas: *replicas
+    enabled: &memcachedEnabled true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 2900Mi
+      limits:
+        cpu: 200m
+        memory: 4000Mi
+  memcachedFrontend: &commonMemcachedConfig
+    replicas: *replicas
+    enabled: *memcachedEnabled
+    resources:
+      requests:
+        cpu: 50m
+        memory: 50Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
+  memcachedIndexQueries: *commonMemcachedConfig
+  memcachedIndexWrites: *commonMemcachedConfig
+
+promtail:
+  fullnameOverride: loki-promtail
+  podAnnotations: false
+  deploymentStrategy:
+    type: RollingUpdate
+  resources:
+    requests:
+      cpu: 200m
+      memory: 300Mi
+    limits:
+      cpu: 400m
+      memory: 600Mi
+  serviceMonitor:
+    enabled: true
+    interval: *serviceMonitorInterval
+  loki:
+    serviceName: loki-gateway
+    servicePort: *gatewayPort
+    serviceScheme: http

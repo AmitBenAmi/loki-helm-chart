@@ -1,0 +1,121 @@
+loki-distributed:
+  loki:
+    config: |
+      auth_enabled: false
+      chunk_store_config:
+        chunk_cache_config:
+          memcached: &memcached
+            batch_size: 100
+            parallelism: 100
+          memcached_client: &memcached_client
+            consistent_hash: true
+            host: {{ include "loki.memcachedChunksFullname" . }}
+            service: http
+        max_look_back_period: 0s
+        write_dedupe_cache_config:
+          memcached: *memcached
+          memcached_client:
+            <<: *memcached_client
+            host: {{ include "loki.memcachedIndexWritesFullname" . }}
+      
+      frontend:
+        compress_responses: true
+        max_outstanding_per_tenant: 200
+      
+      frontend_worker:
+        frontend_address: {{ include "loki.queryFrontendFullname" . }}:9095
+        grpc_client_config:
+          max_send_msg_size: 104857600
+        parallelism: 8
+      
+      memberlist:
+        join_members:
+          - {{ include "loki.fullname" . }}-memberlist
+      
+      ingester:
+        chunk_block_size: 262144
+        chunk_idle_period: 3m
+        chunk_retain_period: 1m
+        lifecycler:
+          heartbeat_period: 5s
+          join_after: 30s
+          num_tokens: 512
+          ring:
+            heartbeat_timeout: 1m
+            kvstore:
+              store: memberlist
+            replication_factor: 3
+      
+      ingester_client:
+        grpc_client_config:
+          max_recv_msg_size: 67108864
+        remote_timeout: 1s
+      
+      limits_config:
+        enforce_metric_name: false
+        max_query_length: 12000h
+        max_query_parallelism: 32
+        reject_old_samples: true
+        reject_old_samples_max_age: 168h
+        max_cache_freshness_per_query: 10m
+      
+      query_range:
+        align_queries_with_step: true
+        cache_results: true
+        max_retries: 5
+        split_queries_by_interval: 24h
+        results_cache:
+          cache:
+            memcached_client:
+              <<: *memcached_client
+              host: {{ include "loki.memcachedFrontendFullname" . }}
+              timeout: 500ms
+      schema_config:
+        configs:
+          - &schema
+            from: 2018-04-15
+            store: aws-dynamo
+            object_store: aws
+            schema: v10
+            index:
+              prefix: {{ printf "loki_%s_" (.Values.clusterName | replace "-" "_") }}
+              period: {{ ternary "168h" "48h" .Values.prodCluster }}
+              tags:
+                {{- range $key, $val := .Values.tags }}
+                {{ $key }}: {{ $val }}
+                {{- end }}
+          - <<: *schema
+            from: 2020-01-07
+            schema: v11
+      server:
+        http_listen_port: 3100
+        graceful_shutdown_timeout: 5s
+        grpc_server_max_concurrent_streams: 1000
+        grpc_server_max_recv_msg_size: 104857600
+        grpc_server_max_send_msg_size: 104857600
+        http_server_write_timeout: 1m
+      
+      storage_config:
+        aws:
+          dynamodb:
+            dynamodb_url: dynamodb://{{ .Values.region }}
+          s3: s3://{{ .Values.region }}/{{ .Values.s3BucketName }}
+        index_queries_cache_config:
+          memcached: *memcached
+          memcached_client:
+            <<: *memcached_client
+            host: {{ include "loki.memcachedIndexQueriesFullname" . }}
+      distributor:
+        ring:
+          kvstore:
+            store: memberlist
+      table_manager:
+        chunk_tables_provisioning:
+          inactive_read_throughput: 0
+          inactive_write_throughput: 0
+          provisioned_read_throughput: 0
+          provisioned_write_throughput: 0
+        retention_period: {{ printf "%sh" (.Values.retentionPeriodInHours | toString) }}
+        retention_deletes_enabled: true
+        index_tables_provisioning:
+          enable_inactive_throughput_on_demand_mode: true

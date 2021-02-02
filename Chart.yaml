@@ -1,0 +1,16 @@
+apiVersion: v2
+name: loki
+description: Using loki helm chart
+version: 1.0.0
+home: https://github.com/grafana/loki
+icon: https://raw.githubusercontent.com/grafana/loki/master/docs/sources/logo.png
+sources:
+  - https://github.com/grafana/helm-charts/tree/main/charts/loki
+  - https://github.com/grafana/helm-charts/tree/main/charts/promtail
+dependencies:
+  - name: loki-distributed
+    version: 0.21.2
+    repository: https://grafana.github.io/helm-charts
+  - name: promtail
+    version: 2.2.0
+    repository: https://grafana.github.io/helm-charts
