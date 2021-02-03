@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loki-create-s3-bucket
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: pre-install
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      containers:
+        - image: {{ .Values.bucketCreatorImage }}
+          name: loki-create-s3-bucket
+          env:
+            - name: BUCKET_NAME
+              value: {{ .Values.bucketName }}
+            # In EKS 1.18 it is injected automatically if using IAM role for service accounts
+            # https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html#kubernetes-1.18
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.awsRegion }}
+          resources:
+            requests:
+              cpu: 50m
+              memory: 50Mi
+            limits:
+              cpu: 100m
+              memory: 100Mi
+          imagePullPolicy: Always
+      serviceAccount: loki-s3-bucket-creator
+      restartPolicy: OnFailure

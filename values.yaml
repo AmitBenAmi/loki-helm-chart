@@ -1,3 +1,9 @@
+awsAccount: 123456789012
+awsRegion: us-east-1
+awsRole: loki-bucket-creator
+bucketCreatorImage: loki-bucket-creator
+bucketName: loki-bucket
+
 loki-distributed:
   nameOverride: loki
   fullnameOverride: loki
